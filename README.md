@@ -63,7 +63,7 @@ Outputs four HTML files to `outputs/`. Open any in a browser - no server require
 
 ## Project Structure
 
-Project Structure
+```
 labor-market-analysis/
   src/
     data_viz_interactive.py
@@ -74,6 +74,7 @@ labor-market-analysis/
     viz4_bls_revisions.html
   README.md
   .gitignore
+```
 
 ---
 
