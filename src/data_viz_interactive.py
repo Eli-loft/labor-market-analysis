@@ -287,7 +287,7 @@ def viz2_unemployment_depth():
 
     baseline_civpart = df.loc["2020-01-01", "CIVPART"]
     df["gap_millions"] = ((df["U6"] - df["U3"]) / 100) * (df["CLF"] / 1000)
-
+    
     fig = make_subplots(
         rows=2, cols=1,
         shared_xaxes=True,
@@ -311,7 +311,7 @@ def viz2_unemployment_depth():
     fig.add_trace(go.Scatter(
         x=df.index, y=df["U6"],
         fill="tonexty", fillcolor=RED_LIGHT,
-        mode="lines", line=dict(color=RED, width=2, dash="dash"),
+        mode="lines", line=dict(color=RED, width=2, dash="solid", shape="spline", smoothing=0.5),
         name="U-6 Broad (inc. discouraged + involuntary PT)",
         visible=False,
         customdata=df["gap_millions"].values,
@@ -334,70 +334,88 @@ def viz2_unemployment_depth():
     # trace 3: EPOP hidden by default
     fig.add_trace(go.Scatter(
         x=df.index, y=df["EPOP"],
-        mode="lines", line=dict(color=RED, width=2, dash="dash"),
+        fill="tonexty", fillcolor=RED_LIGHT,
+        mode="lines", line=dict(color=RED, width=2, dash="solid", shape="spline", smoothing=0.5),
         name="Prime-Age Employment-Population Ratio",
         visible=False,
         hovertemplate="<b>%{x|%b %Y}</b><br>Prime-Age EPOP: %{y:.1f}%<extra></extra>"
     ), row=2, col=1)
 
-    # Recession bands
-    for band in [("2007-12-01", "2009-06-01"), ("2020-02-01", "2020-04-01")]:
-        for row_n in [1, 2]:
-            fig.add_vrect(x0=band[0], x1=band[1],
-                          fillcolor=GREY_LIGHT, layer="below", line_width=0,
-                          row=row_n, col=1)
+    # Recession bands as traces (toggleable)
+    for band_start, band_end in [("2007-12-01", "2009-06-01"), ("2020-02-01", "2020-04-01")]:
+        fig.add_trace(go.Scatter(
+            x=[band_start, band_start, band_end, band_end, band_start],
+            y=[2, 25, 25, 2, 2],
+            fill="toself", fillcolor=GREY_LIGHT,
+            line=dict(width=0), showlegend=False,
+            visible=False, hoverinfo="skip", mode="lines"
+        ), row=1, col=1)
+        fig.add_trace(go.Scatter(
+            x=[band_start, band_start, band_end, band_end, band_start],
+            y=[58, 83, 83, 58, 58],
+            fill="toself", fillcolor=GREY_LIGHT,
+            line=dict(width=0), showlegend=False,
+            visible=False, hoverinfo="skip", mode="lines"
+        ), row=2, col=1)
 
-    fig.add_annotation(
-        x="2007-12-01", y=0.97, yref="paper",
-        text="Last comparable\ndivergence", showarrow=False,
-        font=dict(color=GREY, size=9),
-        xanchor="left", bgcolor=DARK_BG, opacity=0.85
-    )
-
-    # Pre-pandemic baseline
-    fig.add_shape(type="line",
-                  x0=df.index[0], x1=df.index[-1],
-                  y0=baseline_civpart, y1=baseline_civpart,
-                  line=dict(color="rgba(255,255,255,0.3)", width=1, dash="dot"),
-                  row=2, col=1)
-    fig.add_annotation(
-        x=df.index[int(len(df)*0.15)], y=baseline_civpart + 0.3,
-        text="Pre-Pandemic Baseline (Jan 2020)",
-        showarrow=False, font=dict(color="rgba(255,255,255,0.45)", size=9),
-        row=2, col=1
-    )
-
-    # Hidden unemployment annotation
-    fig.add_annotation(
-        x=df.index[-1], y=(last["U3"] + last["U6"]) / 2,
-        text=f"<b>\"Hidden Unemployment\"</b><br>"
-             f"~{hidden_millions:.1f}M workers<br>invisible to headline",
-        showarrow=True, ax=-120, ay=0,
-        arrowhead=2, arrowcolor=RED,
-        font=dict(color=RED, size=10),
-        bgcolor=DARK_BG, opacity=0.9, xanchor="right",
-        row=1, col=1
-    )
+    # Baseline as trace (toggleable)
+    fig.add_trace(go.Scatter(
+        x=[str(df.index[0].date()), str(df.index[-1].date())],
+        y=[baseline_civpart, baseline_civpart],
+        mode="lines",
+        line=dict(color="rgba(255,255,255,0.3)", width=1, dash="dot"),
+        showlegend=False, visible=False, hoverinfo="skip"
+    ), row=2, col=1)
 
     # Buttons
+    # Trace order:
+    # 0: U3, 1: U6, 2: CIVPART, 3: EPOP
+    # 4: recession band 1 row 1, 5: recession band 1 row 2
+    # 6: recession band 2 row 1, 7: recession band 2 row 2
+    # 8: baseline line
     fig.update_layout(
         updatemenus=[
             dict(
                 type="buttons",
-                x=0.01, y=0.99, xanchor="left", yanchor="top",
-                showactive=True,
-                bgcolor=PANEL_BG,
-                font=dict(color=TEXT),
+                x=0.01, y=0.90, xanchor="left", yanchor="bottom",
+                showactive=False,
+                bgcolor="#1a1a2e",
+                bordercolor=RED,
+                borderwidth=1,
+                font=dict(color=TEXT, size=11),
                 buttons=[
                     dict(
-                        label="📊 Official View (U-3 Only)",
+                        label="Official View (U-3 Only)",
                         method="update",
-                        args=[{"visible": [True, False, False, False]}]
+                        args=[
+                            {"visible": [True, False, False, False, False, False, False, False, False]},
+                            {"annotations": []}
+                        ]
                     ),
                     dict(
-                        label="🔍 Show Full Picture",
+                        label="Show Full Picture",
                         method="update",
-                        args=[{"visible": [True, True, True, True]}]
+                        args=[
+                            {"visible": [True, True, True, True, True, True, True, True, True]},
+                            {"annotations": [
+                                dict(
+                                    x="2008-09-01", y=0.565, yref="paper",
+                                    text="Last comparable<br>divergence",
+                                    showarrow=False,
+                                    font=dict(color=GREY, size=9),
+                                    xanchor="center", yanchor="middle",
+                                    bgcolor=DARK_BG, opacity=0.85
+                                ),
+                                dict(
+                                    x=str(df.index[len(df)//2].date()),
+                                    y=baseline_civpart + 0.5,
+                                    xref="x2", yref="y2",
+                                    text="Pre-Pandemic Baseline (Jan 2020)",
+                                    showarrow=False,
+                                    font=dict(color="rgba(255,255,255,0.45)", size=9)
+                                )
+                            ]}
+                        ]
                     ),
                 ]
             )
@@ -409,20 +427,22 @@ def viz2_unemployment_depth():
             font=dict(color=TEXT, size=17)
         ),
         paper_bgcolor=DARK_BG, plot_bgcolor=PANEL_BG,
-        font=dict(color=TEXT),
+        font=dict(color=TEXT, size=8),
         legend=dict(bgcolor=PANEL_BG, bordercolor=GREY, borderwidth=1,
-                    x=0.01, y=0.92, xanchor="left", yanchor="top"),
+                    x=0.99, y=0.99, xanchor="right", yanchor="top"),
         hovermode="x unified",
         margin=dict(t=100, b=60, l=80, r=40)
     )
-    fig.update_xaxes(gridcolor="#2c2c3e")
-    fig.update_yaxes(gridcolor="#2c2c3e")
-
+    fig.update_xaxes(type="date", gridcolor="#2c2c3e", row=1, col=1)
+    fig.update_xaxes(type="date", gridcolor="#2c2c3e", row=2, col=1)
+    fig.update_yaxes(gridcolor="#2c2c3e", range=[2, 25], row=1, col=1)
+    fig.update_yaxes(gridcolor="#2c2c3e", range=[58, 83], row=2, col=1)
     path = save_html(fig, "viz2_unemployment_depth")
 
     # Inject animated counter
     js = f"""
 (function() {{
+
     var targetValue = {hidden_millions:.1f};
     var counterEl = null;
     var animated = false;
@@ -431,12 +451,12 @@ def viz2_unemployment_depth():
         if (animated) return;
         animated = true;
         var start = null;
-        var duration = 1500;
+        var duration = 10000;
         counterEl = document.createElement('div');
         counterEl.style.cssText = [
             'position:fixed',
-            'bottom:80px',
-            'right:30px',
+            'bottom:150px',
+            'right:50px',
             'background:rgba(22,33,62,0.96)',
             'border:2px solid {RED}',
             'border-radius:8px',
@@ -444,12 +464,35 @@ def viz2_unemployment_depth():
             'color:{TEXT}',
             'font-family:sans-serif',
             'font-size:14px',
-            'z-index:9999',
+            'z-index:1',
             'pointer-events:none',
-            'box-shadow:0 0 20px rgba(192,57,43,0.4)'
+            'box-shadow:0 0 20px rgba(192,57,43,0.4)',
+            'transition:opacity 0.3s ease'
         ].join(';');
-        document.body.appendChild(counterEl);
+        var plotDiv = document.querySelector('.plotly-graph-div');
+        plotDiv.style.position = 'relative';
+        plotDiv.appendChild(counterEl);
 
+        // Fade listeners
+        plotDiv.on('plotly_hover', function(data) {{
+            if (!counterEl) return;
+            var points = data.points;
+            if (!points || points.length === 0) return;
+            
+            var hoverDate = new Date(points[0].x);
+            var fadeDate = new Date('2017-05-01');
+            var isPanel2 = points.some(function(p) {{ return p.curveNumber >= 2; }});
+            
+            if (hoverDate >= fadeDate && isPanel2) {{
+                counterEl.style.opacity = '0.08';
+            }} else {{
+                counterEl.style.opacity = '1';
+            }}
+        }});
+
+        plotDiv.on('plotly_unhover', function() {{
+            if (counterEl) counterEl.style.opacity = '1';
+        }});
         function step(timestamp) {{
             if (!start) start = timestamp;
             var progress = Math.min((timestamp - start) / duration, 1);
@@ -465,6 +508,7 @@ def viz2_unemployment_depth():
         }}
         requestAnimationFrame(step);
     }}
+    
 
     document.addEventListener('click', function(e) {{
         var el = e.target;
